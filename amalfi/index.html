@@ -54,6 +54,7 @@ p{margin:0}
 .btn:focus-visible,input:focus-visible,.tile-btn:focus-visible,.tok:focus-visible,.opt:focus-visible{outline:3px solid var(--lemon);outline-offset:2px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .linkish{background:none;border:none;color:var(--cobalt);text-decoration:underline;cursor:pointer;padding:6px 0;font-weight:600;align-self:flex-start}
+.linkish:disabled{color:var(--muted);text-decoration:none;cursor:default;font-weight:400}
 input[type=text]{width:100%;border:2px solid var(--cobalt-soft);border-radius:10px;padding:10px 12px;background:var(--glaze);min-height:46px}
 input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf);font-weight:800}
 
@@ -392,10 +393,11 @@ input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf
   var SB_URL = "https://hvzazdtdaqrucuiejqhr.supabase.co";
   var SB_KEY = "sb_publishable_neJScTLFs1LLWy5222-uCQ_lULj5QyN";
   var GAME_ID = "amalfi";
+  var HINT_DELAY = 90; /* seconds on a lock before its hint can be opened */
   var S;
   function fresh(){
     return {screen:"start", team:"", start:0, end:0, penalty:0, lock:1, hints:{},
-            l1:[], dial:[0,0,0], l3:[], l4:[], l4sel:null, l5:0, l6:0, l7:0, bins:{p:[],s:[]}, savedId:null, savedSec:0};
+            l1:[], dial:[0,0,0], l3:[], l4:[], l4sel:null, l5:0, l6:0, l7:0, bins:{p:[],s:[]}, savedId:null, savedSec:0, lockStart:0};
   }
   var $ = function(s){ return document.querySelector(s); };
   var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
@@ -478,11 +480,12 @@ input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf
     });
     $("#pen").innerHTML = "hints<br>+" + fmt(S.penalty*1000);
     var r = RENDER[S.lock]; if (r) r();
+    updateHintButtons();
   }
   var openTimer = null;
   function unlock(){
     var n = S.lock;
-    S.lock = n + 1; save();
+    S.lock = n + 1; S.lockStart = Date.now() + 1300; save();
     var pad = $$("#pads .pad")[n-1];
     if (pad){ pad.classList.add("open"); pad.classList.remove("current"); }
     healTree($("#tree"), n);
@@ -653,15 +656,28 @@ input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf
   $$(".hint-btn").forEach(function(b){
     b.addEventListener("click", function(){
       var n = b.closest(".lock").getAttribute("data-lock");
+      if (b.disabled || hintWait() > 0) return;
       if (!S.hints[n]){ S.hints[n] = true; S.penalty += 30; save(); renderGame(); }
     });
   });
+
+  /* ---------- hint countdown ---------- */
+  function hintWait(){ return Math.max(0, Math.ceil(HINT_DELAY - (Date.now() - (S.lockStart || S.start)) / 1000)); }
+  function updateHintButtons(){
+    var w = hintWait();
+    $$(".lock .hint-btn").forEach(function(b){
+      var txt = w > 0 ? "Hint available in " + fmt(w*1000) : "Show a hint (+30 s)";
+      if (b.textContent !== txt) b.textContent = txt;
+      b.disabled = w > 0;
+    });
+  }
 
   /* ---------- clock ---------- */
   function tick(){
     if (S.screen === "game" && S.start){
       var t = Date.now() - S.start + S.penalty*1000, c = $("#clock");
       c.textContent = fmt(t); c.classList.toggle("over", t > 12*60*1000);
+      updateHintButtons();
     }
   }
   setInterval(tick, 500);
@@ -749,7 +765,7 @@ input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf
     var name = $("#team").value.trim();
     if (!name){ $("#team-msg").textContent = "Write a team name first."; shake($("#team")); $("#team").focus(); return; }
     $("#team-msg").textContent = "";
-    S = fresh(); S.team = name; S.start = Date.now();
+    S = fresh(); S.team = name; S.start = Date.now(); S.lockStart = S.start;
     drawTree($("#tree")); show("game"); renderGame(); tick();
     $("#w1").focus({preventScroll:true});
   });
