@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Save the Last Lemon Tree</title>
+<meta name="description" content="A 7-lock escape game for English class about Amalfi lemons and the mal secco disease.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Amalfi majolica: cobalt glaze on white tiles, lemon yellow, leaf green. One column, phone-first, one lock at a time. */
+  --glaze:#f5f7fb;
+  --tile:#ffffff;
+  --cobalt:#1c3a9b;
+  --cobalt-soft:#dde5f7;
+  --lemon:#f6cd1c;
+  --leaf:#3f8b3b;
+  --ink:#141d47;
+  --muted:#56608a;
+  --bad:#c33a2c;
+  --display:"Caprasimo","Cooper Black","Bookman Old Style",Georgia,serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--glaze);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.45}
+button,input{font:inherit;color:inherit}
+.tiles{
+  background:
+    radial-gradient(circle at 50% 50%,var(--lemon) 0 13%,transparent 14%),
+    radial-gradient(circle at 50% 50%,var(--cobalt) 0 21%,transparent 22%),
+    radial-gradient(circle at 50% 50%,var(--tile) 0 30%,transparent 31%),
+    radial-gradient(circle at 0 0,var(--tile) 0 24%,transparent 25%),
+    radial-gradient(circle at 100% 0,var(--tile) 0 24%,transparent 25%),
+    radial-gradient(circle at 0 100%,var(--tile) 0 24%,transparent 25%),
+    radial-gradient(circle at 100% 100%,var(--tile) 0 24%,transparent 25%),
+    var(--cobalt);
+  background-size:46px 46px;
+}
+header.band{height:18px}
+.wrap{max-width:540px;margin:0 auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:16px}
+h1,h2{font-family:var(--display);font-weight:400;color:var(--cobalt);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:2.35rem}
+h2{font-size:1.45rem}
+p{margin:0}
+.card{background:var(--tile);border:2px solid var(--cobalt);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;box-shadow:4px 4px 0 var(--cobalt)}
+.kicker{font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.btn{appearance:none;border:2px solid var(--cobalt);background:var(--cobalt);color:#fff;font-weight:800;border-radius:999px;padding:12px 22px;cursor:pointer;min-height:48px;transition:transform .12s ease}
+.btn:active{transform:translateY(2px)}
+.btn.ghost{background:var(--tile);color:var(--cobalt)}
+.btn.lemon{background:var(--lemon);color:var(--ink);border-color:var(--ink)}
+.btn:focus-visible,input:focus-visible,.tile-btn:focus-visible,.tok:focus-visible,.opt:focus-visible{outline:3px solid var(--lemon);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.linkish{background:none;border:none;color:var(--cobalt);text-decoration:underline;cursor:pointer;padding:6px 0;font-weight:600;align-self:flex-start}
+input[type=text]{width:100%;border:2px solid var(--cobalt-soft);border-radius:10px;padding:10px 12px;background:var(--glaze);min-height:46px}
+input[type=text].ok{border-color:var(--leaf);background:#eaf5e6;color:var(--leaf);font-weight:800}
+
+/* status bar */
+.status{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"clock pads pen";gap:8px 12px;align-items:center;position:sticky;top:0;z-index:5;background:var(--glaze);padding:10px 0;border-bottom:2px solid var(--cobalt-soft)}
+.clock{grid-area:clock;font-family:var(--display);font-size:1.6rem;color:var(--cobalt);font-variant-numeric:tabular-nums;min-width:4.2ch}
+.clock.over{color:var(--bad)}
+.locks{grid-area:pads;display:flex;gap:3px;justify-content:center}
+.penalty{grid-area:pen;font-size:.8rem;color:var(--muted);text-align:right;line-height:1.2}
+@media (max-width:420px){
+  .status{grid-template-columns:1fr auto;grid-template-areas:"clock pen" "pads pads"}
+  .locks{justify-content:space-between}
+}
+.pad{width:30px;height:40px;overflow:visible}
+.pad .shackle{transition:transform .5s cubic-bezier(.3,1.6,.5,1);transform-box:view-box;transform-origin:25px 17px}
+.pad.open .shackle{transform:translateY(-6px) rotate(-18deg)}
+.pad .body{fill:var(--cobalt-soft);stroke:var(--cobalt);stroke-width:2.5}
+.pad.open .body{fill:var(--lemon)}
+.pad.current .body{fill:#fff;stroke-width:3.5}
+
+/* tree */
+.tree-card{padding:10px 18px 6px;align-items:center}
+.tree{width:100%;max-width:300px;height:auto;display:block}
+.leaf{transition:fill 1s ease}
+.leaf.sick{fill:#b8933a}
+.leaf.sick.dark{fill:#8d6b2e}
+.leaf.ok{fill:var(--leaf)}
+.leaf.ok.dark{fill:#2f6f2d}
+.fruit{transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .6s cubic-bezier(.3,1.7,.5,1)}
+.won .fruit{transform:scale(1)}
+.tree-caption{font-size:.85rem;color:var(--muted);text-align:center}
+
+/* word lists (locks 1 and 3) */
+.defs{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.defs label{display:block;font-weight:600;margin-bottom:4px}
+.len{color:var(--muted);font-weight:400}
+.letters{display:flex;gap:8px;justify-content:center}
+.letters span{width:44px;height:52px;border:2px dashed var(--cobalt);border-radius:8px;display:grid;place-items:center;font-family:var(--display);font-size:1.6rem;color:var(--cobalt)}
+.letters span.on{border-style:solid;background:var(--lemon);color:var(--ink)}
+.scramble{font-family:var(--display);font-size:1.45rem;letter-spacing:.18em;color:var(--cobalt);display:block;margin-bottom:4px}
+
+/* lock 2 */
+.claims{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.claims li{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;background:var(--glaze);border-radius:10px;padding:8px 10px}
+.crate{font-family:var(--display);font-size:1.15rem;color:var(--ink);background:var(--lemon);border:2px solid var(--ink);border-radius:8px;text-align:center;padding:4px 0;font-variant-numeric:tabular-nums}
+.dials{display:flex;gap:10px;justify-content:center}
+.dial{display:flex;flex-direction:column;align-items:center;gap:4px}
+.dial button{width:52px;height:36px;border-radius:8px;border:2px solid var(--cobalt);background:var(--tile);color:var(--cobalt);font-weight:800;cursor:pointer}
+.dial output{width:52px;height:60px;display:grid;place-items:center;font-family:var(--display);font-size:2rem;background:var(--cobalt);color:#fff;border-radius:8px;font-variant-numeric:tabular-nums}
+
+/* lock 4: error hunt */
+.hunt{display:flex;flex-direction:column;gap:12px}
+.hunt-line{background:var(--glaze);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:0 2px;align-items:center;line-height:1.2}
+.hunt-line.ok{background:#eaf5e6}
+.tok{border:1.5px solid transparent;background:none;border-radius:6px;padding:7px 3px;cursor:pointer;font-size:1rem}
+.tok:hover{border-color:var(--cobalt-soft)}
+.tok.wrong{text-decoration:line-through;color:var(--bad);cursor:default}
+.fix{font-weight:800;color:var(--leaf);padding:6px 2px}
+.hunt-line.ok .tok{cursor:default}
+
+/* lock 5 */
+.sentence{display:flex;flex-direction:column;gap:8px}
+.slot{min-height:56px;border:2px dashed var(--cobalt);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--glaze)}
+.slot.ok{border-style:solid;border-color:var(--leaf);background:#eaf5e6}
+.pool{display:flex;flex-wrap:wrap;gap:6px}
+.tile-btn{border:2px solid var(--cobalt);background:var(--tile);color:var(--ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;min-height:42px}
+.slot .tile-btn{background:var(--cobalt);color:#fff}
+.slot.ok .tile-btn{background:var(--leaf);border-color:var(--leaf)}
+
+/* lock 6: linking words */
+.gaps{display:flex;flex-direction:column;gap:12px}
+.gap-item{background:var(--glaze);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.gap-item.ok{background:#eaf5e6}
+.blank{display:inline-block;min-width:5.5em;border-bottom:2px solid var(--cobalt);text-align:center;font-weight:800;color:var(--leaf)}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{border:2px solid var(--cobalt);background:var(--tile);border-radius:999px;padding:6px 14px;font-weight:600;cursor:pointer;min-height:40px}
+.opt.no{border-color:var(--bad);color:var(--bad);text-decoration:line-through}
+
+/* lock 7 */
+.sorter{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.sort-card{min-height:96px;border:2px solid var(--ink);border-radius:12px;background:var(--lemon);display:grid;place-items:center;text-align:center;padding:14px;font-weight:800;font-size:1.15rem}
+.sort-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sort-actions .btn{padding:12px 8px}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.85rem}
+.bins div{background:var(--glaze);border-radius:10px;padding:8px 10px;min-height:56px}
+.bins b{display:block;color:var(--cobalt);margin-bottom:2px}
+
+/* lock 4: word partners */
+.pairs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pairs .col{display:flex;flex-direction:column;gap:8px}
+.chip{border:2px solid var(--cobalt);background:var(--tile);color:var(--ink);border-radius:10px;padding:10px 8px;font-weight:700;cursor:pointer;min-height:46px;text-align:center}
+.chip.sel{background:var(--cobalt);color:#fff}
+.chip.done{background:#eaf5e6;border-color:var(--leaf);color:var(--leaf);cursor:default}
+.chip .n{display:inline-block;min-width:1.4em;margin-right:4px;border-radius:999px;background:var(--leaf);color:#fff;font-size:.8rem}
+
+/* lock 5: lemon basket story */
+.story{background:var(--glaze);border-radius:10px;padding:12px;line-height:2.1}
+.gap{display:inline-block;min-width:5.2em;border-bottom:2px solid var(--cobalt-soft);text-align:center;font-weight:800;color:var(--leaf);line-height:1.3}
+.gap.active{border-bottom:3px solid var(--cobalt);background:#fff7cf}
+.basket{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;background:#fff7cf;border:2px dashed var(--lemon);border-radius:14px;padding:12px}
+.word{border:2px solid var(--ink);background:var(--lemon);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:800;cursor:pointer;min-height:42px}
+.word[disabled]{opacity:.3;cursor:default}
+
+/* lock 6: who said it */
+.quote{min-height:96px;border:2px solid var(--ink);border-radius:12px;background:var(--glaze);display:grid;place-items:center;text-align:center;padding:14px;font-size:1.1rem;font-style:italic}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.roles .btn{padding:10px 8px;min-height:46px}
+.roles .btn:last-child:nth-child(odd){grid-column:1 / -1}
+.small{font-size:.85rem;color:var(--muted)}
+
+/* hall of fame */
+.between{justify-content:space-between}
+.tabs{display:flex;gap:4px;background:var(--glaze);border-radius:999px;padding:3px}
+.tab{border:none;background:none;border-radius:999px;padding:6px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+.tab.on{background:var(--cobalt);color:#fff}
+.board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.board li{display:grid;grid-template-columns:2.2em 1fr auto;gap:8px;align-items:center;background:var(--glaze);border-radius:10px;padding:8px 10px}
+.board .rk{font-family:var(--display);color:var(--cobalt);text-align:center;font-size:1.1rem}
+.board li:nth-child(1) .rk{background:var(--lemon);border-radius:999px;color:var(--ink)}
+.board .tm{font-family:var(--display);color:var(--cobalt);font-variant-numeric:tabular-nums}
+.board .tn{font-weight:700;overflow-wrap:anywhere}
+.board .tn small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.board li.me{outline:3px solid var(--lemon);background:#fff7cf}
+.board .empty{display:block;background:none;color:var(--muted);text-align:center;padding:6px}
+.wrap.wide{max-width:760px}
+.board.big li{padding:12px 16px;font-size:1.2rem}
+.board.big .rk,.board.big .tm{font-size:1.5rem}
+.board.big li:nth-child(2) .rk{background:#dfe3ee;border-radius:999px}
+.board.big li:nth-child(3) .rk{background:#f1dcc4;border-radius:999px}
+.rank-msg{text-align:center;font-weight:800;color:var(--leaf);min-height:1.4em}
+
+.hint{background:var(--cobalt-soft);border-radius:10px;padding:10px 12px;font-size:.95rem}
+.msg{min-height:1.4em;font-weight:700}
+.msg.bad{color:var(--bad)}
+.msg.good{color:var(--leaf)}
+.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+/* win + teacher */
+.big-time{font-family:var(--display);font-size:3.4rem;color:var(--cobalt);text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+.center{text-align:center}
+.qr-box{display:grid;place-items:center;background:#fff;padding:12px;border-radius:12px}
+.qr-box svg{width:min(78vw,440px);height:auto}
+[hidden]{display:none !important}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<header class="band tiles" aria-hidden="true"></header>
+
+<!-- START -->
+<main class="wrap" id="screen-start">
+  <div class="card">
+    <span class="kicker">Amalfi Coast · summer 2024 · escape game</span>
+    <h1>Save the Last Lemon Tree</h1>
+    <p><b>Francesco Bonacore</b> grows lemons on the Amalfi Coast. You met him in the DW video. This year, mal secco is killing his trees.</p>
+    <p>The cure is in his old shed, behind <b>seven locks</b>. Open them all and his last tree lives.</p>
+    <p>Work in pairs. When you finish, your time goes into the Hall of Fame. A hint costs <b>+30 seconds</b>.</p>
+    <label for="team" class="kicker">Your team name</label>
+    <input type="text" id="team" maxlength="24" placeholder="e.g. The Limoncello Squad" autocomplete="off">
+    <p class="small">Use a team nickname, not your real full name. The whole class will see it in the Hall of Fame.</p>
+    <p class="msg bad" id="team-msg" aria-live="polite"></p>
+    <div class="row"><button class="btn lemon" id="go">Start the clock</button></div>
+  </div>
+  <button class="linkish" id="open-teacher">For the teacher: QR code and results</button>
+</main>
+
+<!-- TEACHER -->
+<main class="wrap" id="screen-teacher" hidden>
+  <div class="card">
+    <h2>Scan to play</h2>
+    <div class="qr-box" id="qr" aria-label="QR code with the game link"></div>
+    <p class="center" style="font-size:.95rem;word-break:break-all;font-weight:600" id="qr-url"></p>
+    <div class="row"><button class="btn" id="open-results">Show the results</button><button class="btn ghost" id="close-teacher">Back</button></div>
+  </div>
+</main>
+
+<!-- GAME -->
+<main class="wrap" id="screen-game" hidden>
+  <div class="status">
+    <div class="clock" id="clock">0:00</div>
+    <div class="locks" id="pads" aria-label="Locks"></div>
+    <div class="penalty" id="pen">hints<br>+0:00</div>
+  </div>
+
+  <div class="card tree-card">
+    <svg class="tree" id="tree" viewBox="0 0 240 170" role="img" aria-label="Francesco's lemon tree">
+      <path d="M0 170 C60 150 180 150 240 170 Z" fill="#c9a77a"/>
+      <path d="M8 168 C70 152 170 152 232 168" fill="none" stroke="#a9875c" stroke-width="2"/>
+      <path d="M114 160 C116 130 112 112 104 96 M118 160 C120 128 126 110 138 92 M117 130 C112 118 96 110 84 108" stroke="#6b4a2b" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <g class="leaves"></g>
+      <g class="fruits"></g>
+    </svg>
+    <p class="tree-caption" id="tree-caption">The tree is sick. Open a lock to help it.</p>
+  </div>
+
+  <!-- LOCK 1 -->
+  <section class="card lock" data-lock="1" hidden>
+    <span class="kicker">Lock 1 of 7 · word lock</span>
+    <h2>Five words, five letters</h2>
+    <p>Write the words from the worksheet. Their first letters open the lock.</p>
+    <ol class="defs" id="l1">
+      <li><label for="w1">Something that may cause harm or danger <span class="len">(6 letters)</span></label><input type="text" id="w1" data-a="threat" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="w2">The ability to continue despite difficulties <span class="len">(10)</span></label><input type="text" id="w2" data-a="resilience" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="w3">The system of money, trade and jobs in a region <span class="len">(7)</span></label><input type="text" id="w3" data-a="economy" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="w4">Producing the result that you want <span class="len">(9)</span></label><input type="text" id="w4" data-a="effective" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="w5">Able to continue for a long time without destroying resources <span class="len">(11)</span></label><input type="text" id="w5" data-a="sustainable" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+    </ol>
+    <div class="letters" id="letters"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="hint" hidden>The words are in Exercise 3A and in the word-formation exercise. The code starts with T.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 2 -->
+  <section class="card lock" data-lock="2" hidden>
+    <span class="kicker">Lock 2 of 7 · number lock</span>
+    <h2>Lemon crates</h2>
+    <p>Some sentences are true. Add up the numbers of the <b>true</b> ones. That's the code.</p>
+    <ul class="claims">
+      <li><span class="crate">12</span><span>Amalfi lemons are small and round.</span></li>
+      <li><span class="crate">25</span><span>Mal secco is caused by a fungus.</span></li>
+      <li><span class="crate">8</span><span>Harvesting on the terraces is still done mostly by hand.</span></li>
+      <li><span class="crate">40</span><span>A sick tree can always be saved if the farmer acts fast.</span></li>
+      <li><span class="crate">100</span><span>Amalfi lemons are used to make limoncello.</span></li>
+      <li><span class="crate">50</span><span>A young lemon tree gives a big harvest in its first year.</span></li>
+    </ul>
+    <div class="dials" id="dials"></div>
+    <div class="row" style="justify-content:center"><button class="btn" id="try2">Open the lock</button></div>
+    <p class="msg center" id="msg2" aria-live="polite"></p>
+    <div class="hint" hidden>Exactly three sentences are true.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 3 -->
+  <section class="card lock" data-lock="3" hidden>
+    <span class="kicker">Lock 3 of 7 · anagram lock</span>
+    <h2>Mixed-up lemon words</h2>
+    <p>The wind has mixed up the letters. Write the real words.</p>
+    <ol class="defs" id="l3">
+      <li><label for="a1"><span class="scramble">CRODHAR</span>a garden full of fruit trees</label><input type="text" id="a1" data-a="orchard" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="a2"><span class="scramble">SNUFUG</span>it causes mal secco</label><input type="text" id="a2" data-a="fungus" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="a3"><span class="scramble">TRASHEV</span>collecting the fruit</label><input type="text" id="a3" data-a="harvest" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+      <li><label for="a4"><span class="scramble">CRESTRAE</span>flat "steps" cut into the hill</label><input type="text" id="a4" data-a="terraces" autocomplete="off" autocapitalize="off" spellcheck="false"></li>
+    </ol>
+    <div class="hint" hidden>First letters: O… F… H… T…</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 4 -->
+  <section class="card lock" data-lock="4" hidden>
+    <span class="kicker">Lock 4 of 7 · partner lock</span>
+    <h2>Word partners</h2>
+    <p>These words go together in the text. Tap a word on the left, then its partner on the right.</p>
+    <div class="pairs"><div class="col" id="pairs-l"></div><div class="col" id="pairs-r"></div></div>
+    <div class="hint" hidden>Three of them: fungal disease, cultural heritage, early detection.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 5 -->
+  <section class="card lock" data-lock="5" hidden>
+    <span class="kicker">Lock 5 of 7 · basket lock</span>
+    <h2>Francesco's story</h2>
+    <p>Fill the gaps one by one. Tap the right word in the lemon basket. One word is extra.</p>
+    <p class="story" id="story"></p>
+    <div class="basket" id="basket"></div>
+    <div class="hint" hidden><i>Fragrant</i> = it smells nice. <i>Livelihood</i> = the way you earn money to live. The extra word is <i>landslides</i>.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 6 -->
+  <section class="card lock" data-lock="6" hidden>
+    <span class="kicker">Lock 6 of 7 · voices lock</span>
+    <h2>Who said it?</h2>
+    <p>Five people talk about the lemons. Who said each sentence?</p>
+    <div class="quote" id="quote" aria-live="polite"></div>
+    <div class="roles" id="roles"></div>
+    <p class="small center" id="q-progress"></p>
+    <div class="hint" hidden>The scientist talks about the infection. The mayor talks about the town.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+
+  <!-- LOCK 7 -->
+  <section class="card lock" data-lock="7" hidden>
+    <span class="kicker">Lock 7 of 7 · sorting lock</span>
+    <h2>Problem or solution?</h2>
+    <p>Sort all eight cards. A wrong choice shakes the card.</p>
+    <div class="sorter">
+      <div class="sort-card" id="sort-card" aria-live="polite"></div>
+      <div class="sort-actions">
+        <button class="btn ghost" id="as-problem">Problem</button>
+        <button class="btn" id="as-solution">Solution</button>
+      </div>
+      <div class="bins"><div><b>Problems</b><span id="bin-p"></span></div><div><b>Solutions</b><span id="bin-s"></span></div></div>
+    </div>
+    <div class="hint" hidden>Solutions are things people can <b>do</b>. Problems are things that make farming harder.</div>
+    <button class="linkish hint-btn">Show a hint (+30 s)</button>
+  </section>
+</main>
+
+<!-- RESULTS (teacher, projector) -->
+<main class="wrap wide" id="screen-results" hidden>
+  <div class="card">
+    <div class="row between"><h1>Hall of Fame</h1><div class="tabs" role="tablist"><button class="tab on" data-range="today" role="tab">Today</button><button class="tab" data-range="all" role="tab">All time</button></div></div>
+    <p class="small" id="results-note">Save the Last Lemon Tree · updates every 10 seconds</p>
+    <ol class="board big" id="board-results"><li class="empty">Loading…</li></ol>
+    <div class="row"><button class="btn ghost" id="close-results">Back</button></div>
+  </div>
+</main>
+
+<!-- WIN -->
+<main class="wrap" id="screen-win" hidden>
+  <div class="card">
+    <span class="kicker" id="win-team">Team</span>
+    <h1>The tree is saved!</h1>
+    <div class="big-time" id="win-time">0:00</div>
+    <p class="center" id="win-detail"></p>
+    <p class="rank-msg" id="rank-msg" aria-live="polite"></p>
+    <div class="row" style="justify-content:center"><button class="btn ghost" id="retry-save" hidden>Try saving again</button></div>
+    <p class="center"><b>Show this screen to your teacher.</b></p>
+  </div>
+  <div class="card tree-card won" id="win-tree"></div>
+  <div class="card" id="hof-win">
+    <div class="row between"><h2>Hall of Fame</h2><div class="tabs" role="tablist"><button class="tab on" data-range="today" role="tab">Today</button><button class="tab" data-range="all" role="tab">All time</button></div></div>
+    <ol class="board" id="board-win"><li class="empty">Saving…</li></ol>
+  </div>
+  <button class="linkish" id="again">Play again</button>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(function(){
+  "use strict";
+  var GAME_URL = "https://karelbezpalec1-hash.github.io/aj-hry/amalfi/";
+  var LOCKS = 7;
+  var KEY = "lemon-escape-v8";
+  var SB_URL = "https://hvzazdtdaqrucuiejqhr.supabase.co";
+  var SB_KEY = "sb_publishable_neJScTLFs1LLWy5222-uCQ_lULj5QyN";
+  var GAME_ID = "amalfi";
+  var S;
+  function fresh(){
+    return {screen:"start", team:"", start:0, end:0, penalty:0, lock:1, hints:{},
+            l1:[], dial:[0,0,0], l3:[], l4:[], l4sel:null, l5:0, l6:0, l7:0, bins:{p:[],s:[]}, savedId:null, savedSec:0};
+  }
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+  function load(){ try{ var t = localStorage.getItem(KEY); return t ? JSON.parse(t) : null; }catch(e){ return null; } }
+  function fmt(ms){ var s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0"); }
+  function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function norm(v){ return String(v||"").trim().toLowerCase().replace(/\s+/g," "); }
+  function shake(el){ if(!el) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+
+  /* ---------- tree ---------- */
+  var LEAVES = [
+    [70,70],[88,52],[110,40],[134,44],[156,58],[170,78],[60,92],
+    [82,80],[104,64],[128,66],[150,82],[164,100],[78,104],[100,90],
+    [124,90],[146,104],[118,52],[94,114],[140,28],[56,112],[178,96]
+  ];
+  var FRUITS = [[84,66],[120,58],[150,72],[98,98],[136,96],[70,96],[160,92]];
+  function drawTree(svg){
+    var g = svg.querySelector(".leaves"), f = svg.querySelector(".fruits");
+    g.innerHTML = ""; f.innerHTML = "";
+    LEAVES.forEach(function(l,i){
+      var e = document.createElementNS("http://www.w3.org/2000/svg","ellipse");
+      e.setAttribute("cx",l[0]); e.setAttribute("cy",l[1]); e.setAttribute("rx",19); e.setAttribute("ry",13);
+      e.setAttribute("transform","rotate(" + ((i*37)%60-30) + " " + l[0] + " " + l[1] + ")");
+      e.setAttribute("class","leaf sick" + (i%2 ? " dark" : ""));
+      e.setAttribute("data-stage", (i % LOCKS) + 1);
+      g.appendChild(e);
+    });
+    FRUITS.forEach(function(p,i){
+      var e = document.createElementNS("http://www.w3.org/2000/svg","ellipse");
+      e.setAttribute("cx",p[0]); e.setAttribute("cy",p[1]); e.setAttribute("rx",9); e.setAttribute("ry",12);
+      e.setAttribute("fill","#f6cd1c"); e.setAttribute("stroke","#141d47"); e.setAttribute("stroke-width","1.5");
+      e.setAttribute("class","fruit"); e.style.transitionDelay = (i*0.12) + "s";
+      f.appendChild(e);
+    });
+  }
+  function healTree(svg, opened){
+    svg.querySelectorAll(".leaf").forEach(function(e,i){
+      var ok = Number(e.getAttribute("data-stage")) <= opened;
+      e.style.transitionDelay = (i%3)*0.12 + "s";
+      e.classList.toggle("sick", !ok); e.classList.toggle("ok", ok);
+    });
+  }
+  function caption(n){
+    if (n === 0) return "The tree is sick. Open a lock to help it.";
+    if (n >= LOCKS) return "The tree is healthy!";
+    if (n === LOCKS-1) return "Almost there. One more lock!";
+    return n + " of " + LOCKS + " locks open. The tree is getting greener.";
+  }
+
+  /* ---------- padlocks ---------- */
+  function drawPads(){
+    var host = $("#pads"); host.innerHTML = "";
+    for (var i=1;i<=LOCKS;i++){
+      var open = i < S.lock, cur = i === S.lock;
+      host.insertAdjacentHTML("beforeend",
+        '<svg class="pad' + (open?' open':'') + (cur?' current':'') + '" viewBox="0 -8 34 46" role="img" aria-label="Lock ' + i + (open?' open':' closed') + '">' +
+        '<path class="shackle" d="M9 17 V11 a8 8 0 0 1 16 0 V17" fill="none" stroke="#1c3a9b" stroke-width="3.5"/>' +
+        '<rect class="body" x="4" y="16" width="26" height="20" rx="4"/>' +
+        '<text x="17" y="31" text-anchor="middle" font-size="11" font-weight="800" fill="#141d47">' + i + '</text></svg>');
+    }
+  }
+
+  /* ---------- screens ---------- */
+  function show(name){
+    ["start","teacher","results","game","win"].forEach(function(n){ $("#screen-"+n).hidden = n !== name; });
+    if (name !== "teacher" && name !== "results") { S.screen = name; save(); }
+    setLive(name === "win" || name === "results");
+    window.scrollTo(0,0);
+  }
+  function renderGame(){
+    drawPads();
+    healTree($("#tree"), S.lock-1);
+    $("#tree-caption").textContent = caption(S.lock-1);
+    $$(".lock").forEach(function(sec){
+      var n = sec.getAttribute("data-lock");
+      sec.hidden = Number(n) !== S.lock;
+      sec.querySelector(".hint").hidden = !S.hints[n];
+      sec.querySelector(".hint-btn").hidden = !!S.hints[n];
+    });
+    $("#pen").innerHTML = "hints<br>+" + fmt(S.penalty*1000);
+    var r = RENDER[S.lock]; if (r) r();
+  }
+  var openTimer = null;
+  function unlock(){
+    var n = S.lock;
+    S.lock = n + 1; save();
+    var pad = $$("#pads .pad")[n-1];
+    if (pad){ pad.classList.add("open"); pad.classList.remove("current"); }
+    healTree($("#tree"), n);
+    $("#tree-caption").textContent = "Lock " + n + " is open! " + caption(n);
+    clearTimeout(openTimer);
+    openTimer = setTimeout(function(){ if (S.lock > LOCKS) finish(); else renderGame(); }, 1300);
+  }
+
+  /* ---------- typed word lists (locks 1 and 3) ---------- */
+  function wordList(listSel, stateKey, lockNo, onRender){
+    var inputs = $$(listSel + " input");
+    function render(){
+      inputs.forEach(function(inp,i){
+        var ok = S[stateKey].indexOf(i) > -1;
+        if (ok) inp.value = inp.getAttribute("data-a");
+        inp.classList.toggle("ok", ok); inp.readOnly = ok;
+      });
+      if (onRender) onRender();
+    }
+    inputs.forEach(function(inp,i){
+      inp.addEventListener("input", function(){
+        if (S.lock !== lockNo || S[stateKey].indexOf(i) > -1) return;
+        if (norm(inp.value) === inp.getAttribute("data-a")){
+          S[stateKey].push(i); save(); render();
+          var next = inputs.filter(function(x,j){ return S[stateKey].indexOf(j) < 0; })[0];
+          if (next) next.focus({preventScroll:true});
+          if (S[stateKey].length === inputs.length) unlock();
+        }
+      });
+    });
+    return render;
+  }
+  var render1 = wordList("#l1", "l1", 1, function(){
+    $$("#letters span").forEach(function(sp,i){
+      var ok = S.l1.indexOf(i) > -1; sp.textContent = ok ? "TREES"[i] : ""; sp.classList.toggle("on", ok);
+    });
+  });
+  var render3 = wordList("#l3", "l3", 3);
+
+  /* ---------- lock 2 ---------- */
+  function render2(){
+    var host = $("#dials"); host.innerHTML = "";
+    S.dial.forEach(function(v,i){
+      host.insertAdjacentHTML("beforeend",
+        '<div class="dial"><button data-d="' + i + '" data-s="1" aria-label="Digit ' + (i+1) + ' up">▲</button>' +
+        '<output id="dial' + i + '">' + v + '</output>' +
+        '<button data-d="' + i + '" data-s="-1" aria-label="Digit ' + (i+1) + ' down">▼</button></div>');
+    });
+    $("#msg2").textContent = ""; $("#msg2").className = "msg center";
+  }
+  $("#dials").addEventListener("click", function(ev){
+    var b = ev.target.closest("button"); if (!b) return;
+    var i = Number(b.getAttribute("data-d"));
+    S.dial[i] = (S.dial[i] + Number(b.getAttribute("data-s")) + 10) % 10; save();
+    $("#dial"+i).textContent = S.dial[i];
+  });
+  $("#try2").addEventListener("click", function(){
+    if (S.lock !== 2) return;
+    var code = S.dial.join(""), m = $("#msg2");
+    if (code === "133"){ m.textContent = "Click! The lock is open."; m.className = "msg center good"; unlock(); }
+    else { m.textContent = code + " is wrong. Check which sentences are true."; m.className = "msg center bad"; shake($("#dials")); }
+  });
+
+  /* ---------- lock 4: word partners ---------- */
+  var PAIRS = [["fungal","disease"],["cultural","heritage"],["steep","slopes"],["local","producers"],["early","detection"],["agricultural","research"]];
+  var RIGHT = ["heritage","research","disease","detection","producers","slopes"];
+  function render4(){
+    $("#pairs-l").innerHTML = PAIRS.map(function(p,i){
+      var done = S.l4.indexOf(i) > -1, n = S.l4.indexOf(i) + 1;
+      return '<button class="chip' + (done?' done':'') + (S.l4sel===i?' sel':'') + '" data-l="' + i + '"' + (done?' disabled':'') + '>' + (done?'<span class="n">' + n + '</span>':'') + esc(p[0]) + '</button>';
+    }).join("");
+    $("#pairs-r").innerHTML = RIGHT.map(function(w){
+      var li = PAIRS.findIndex(function(p){ return p[1] === w; }), done = S.l4.indexOf(li) > -1, n = S.l4.indexOf(li) + 1;
+      return '<button class="chip' + (done?' done':'') + '" data-r="' + esc(w) + '"' + (done?' disabled':'') + '>' + (done?'<span class="n">' + n + '</span>':'') + esc(w) + '</button>';
+    }).join("");
+  }
+  $("#screen-game").addEventListener("click", function(ev){
+    var c = ev.target.closest(".pairs .chip"); if (!c || S.lock !== 4 || c.disabled) return;
+    if (c.hasAttribute("data-l")){ S.l4sel = Number(c.getAttribute("data-l")); save(); render4(); return; }
+    if (S.l4sel === null){ shake(c); return; }
+    if (PAIRS[S.l4sel][1] === c.getAttribute("data-r")){
+      S.l4.push(S.l4sel); S.l4sel = null; save(); render4();
+      if (S.l4.length === PAIRS.length) unlock();
+    } else shake(c);
+  });
+
+  /* ---------- lock 5: Francesco's story ---------- */
+  var STORY = ["Francesco Bonacore grows large, ", "fragrant", " lemons on the Amalfi Coast. His trees grow on ", "terraces",
+    " above the sea, and the ", "harvest", " is still done by hand. In 2024, a ", "fungal",
+    " disease called mal secco attacked his orchard. Lemons are his family's ", "livelihood",
+    ", and they are also part of the region's cultural ", "heritage", "."];
+  var BASKET = ["livelihood","terraces","landslides","fragrant","heritage","fungal","harvest"];
+  function render5(){
+    var gap = 0;
+    $("#story").innerHTML = STORY.map(function(part,i){
+      if (i % 2 === 0) return esc(part);
+      var g = gap++, filled = g < S.l5;
+      return '<span class="gap' + (g === S.l5 ? ' active' : '') + '">' + (filled ? esc(part) : '&nbsp;') + '</span>';
+    }).join("");
+    var used = STORY.filter(function(p,i){ return i % 2 === 1; }).slice(0, S.l5);
+    $("#basket").innerHTML = BASKET.map(function(w){
+      var u = used.indexOf(w) > -1;
+      return '<button class="word" data-w="' + esc(w) + '"' + (u?' disabled':'') + '>' + esc(w) + '</button>';
+    }).join("");
+  }
+  $("#basket").addEventListener("click", function(ev){
+    var b = ev.target.closest(".word"); if (!b || S.lock !== 5 || b.disabled) return;
+    var answers = STORY.filter(function(p,i){ return i % 2 === 1; });
+    if (answers[S.l5] === b.getAttribute("data-w")){
+      S.l5++; save(); render5();
+      if (S.l5 === answers.length) unlock();
+    } else shake(b);
+  });
+
+  /* ---------- lock 6: who said it? ---------- */
+  var ROLES = ["Farmer","Scientist","Tourist","Limoncello maker","Mayor"];
+  var QUOTES = [
+    ["“I've been picking lemons on these terraces since I was seven.”", 0],
+    ["“We must detect the infection early and remove the sick trees.”", 1],
+    ["“I came for the sea views, the lemon gardens and a glass of limoncello.”", 2],
+    ["“Without good lemons, I can't make my liqueur.”", 3],
+    ["“Our terraces are part of the town's cultural heritage. We must protect them.”", 4]
+  ];
+  function render6(){
+    $("#quote").textContent = S.l6 < QUOTES.length ? QUOTES[S.l6][0] : "Well done!";
+    $("#roles").innerHTML = ROLES.map(function(r,i){ return '<button class="btn ghost" data-role="' + i + '">' + esc(r) + '</button>'; }).join("");
+    $("#q-progress").textContent = Math.min(S.l6 + 1, QUOTES.length) + " / " + QUOTES.length;
+  }
+  $("#roles").addEventListener("click", function(ev){
+    var b = ev.target.closest("button"); if (!b || S.lock !== 6 || S.l6 >= QUOTES.length) return;
+    if (QUOTES[S.l6][1] === Number(b.getAttribute("data-role"))){
+      S.l6++; save(); render6();
+      if (S.l6 === QUOTES.length) unlock();
+    } else { shake(b); shake($("#quote")); }
+  });
+
+  /* ---------- lock 7: problem or solution ---------- */
+  var CARDS = [
+    ["A fungal disease that kills trees","p"],
+    ["Early detection of the infection","s"],
+    ["Steep slopes where machines can't work","p"],
+    ["Removing infected plants","s"],
+    ["High production costs","p"],
+    ["Buying authentic local products","s"],
+    ["Young trees need years before a good harvest","p"],
+    ["Investing in agricultural research","s"]
+  ];
+  function render7(){
+    $("#sort-card").textContent = S.l7 < CARDS.length ? CARDS[S.l7][0] : "All sorted!";
+    $("#bin-p").textContent = S.bins.p.join(" · ");
+    $("#bin-s").textContent = S.bins.s.join(" · ");
+  }
+  function sortAs(kind){
+    if (S.lock !== 7 || S.l7 >= CARDS.length) return;
+    var card = CARDS[S.l7];
+    if (card[1] === kind){
+      S.bins[kind].push(card[0].split(" ").slice(0,3).join(" ") + "…");
+      S.l7++; save(); render7();
+      if (S.l7 === CARDS.length) unlock();
+    } else shake($("#sort-card"));
+  }
+  $("#as-problem").addEventListener("click", function(){ sortAs("p"); });
+  $("#as-solution").addEventListener("click", function(){ sortAs("s"); });
+
+  var RENDER = {1:render1, 2:render2, 3:render3, 4:render4, 5:render5, 6:render6, 7:render7};
+
+  /* ---------- hints ---------- */
+  $$(".hint-btn").forEach(function(b){
+    b.addEventListener("click", function(){
+      var n = b.closest(".lock").getAttribute("data-lock");
+      if (!S.hints[n]){ S.hints[n] = true; S.penalty += 30; save(); renderGame(); }
+    });
+  });
+
+  /* ---------- clock ---------- */
+  function tick(){
+    if (S.screen === "game" && S.start){
+      var t = Date.now() - S.start + S.penalty*1000, c = $("#clock");
+      c.textContent = fmt(t); c.classList.toggle("over", t > 12*60*1000);
+    }
+  }
+  setInterval(tick, 500);
+
+
+  /* ---------- hall of fame (Supabase) ---------- */
+  var boardRange = "all";
+  function api(path, opts){
+    opts = opts || {};
+    var h = {"apikey": SB_KEY, "Content-Type": "application/json"};
+    if (opts.prefer) h["Prefer"] = opts.prefer;
+    return fetch(SB_URL + "/rest/v1/" + path, {method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined})
+      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.status === 204 ? null : r.json(); });
+  }
+  function todayISO(){ var d = new Date(); d.setHours(0,0,0,0); return d.toISOString(); }
+  function loadBoard(range){
+    var q = "scores?select=id,team,seconds,hints,created_at&game=eq." + GAME_ID + "&order=seconds.asc,created_at.asc&limit=10";
+    if (range === "today") q += "&created_at=gte." + encodeURIComponent(todayISO());
+    return api(q);
+  }
+  function drawBoard(host, rows, range){
+    if (!rows.length){ host.innerHTML = '<li class="empty">' + (range === "today" ? "No times today yet. Be the first!" : "No times yet. Be the first!") + '</li>'; return; }
+    host.innerHTML = rows.map(function(r,i){
+      var d = new Date(r.created_at);
+      var when = d.toLocaleDateString(undefined, {day:"numeric", month:"short"});
+      var hints = r.hints ? (r.hints === 1 ? "1 hint" : r.hints + " hints") : "no hints";
+      return '<li' + (r.id === S.savedId ? ' class="me"' : '') + '><span class="rk">' + (i+1) + '</span><span class="tn">' + esc(r.team) +
+        '<small>' + when + ' · ' + hints + '</small></span><span class="tm">' + fmt(r.seconds*1000) + '</span></li>';
+    }).join("");
+  }
+  function refreshBoards(){
+    var hosts = ["#board-results", "#board-win"].map(function(sel){ return $(sel); });
+    $$(".tab").forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-range") === boardRange); t.setAttribute("aria-selected", t.getAttribute("data-range") === boardRange); });
+    return loadBoard(boardRange).then(function(rows){ hosts.forEach(function(h){ drawBoard(h, rows, boardRange); }); })
+      .catch(function(){ hosts.forEach(function(h){ h.innerHTML = '<li class="empty">The Hall of Fame is offline right now.</li>'; }); });
+  }
+  $$(".tab").forEach(function(t){ t.addEventListener("click", function(){ boardRange = t.getAttribute("data-range"); refreshBoards(); }); });
+  var liveTimer = null;
+  function setLive(on){
+    clearInterval(liveTimer); liveTimer = null;
+    if (on) liveTimer = setInterval(function(){ if (!document.hidden) refreshBoards(); }, 10000);
+  }
+
+  function saveScore(){
+    var sec = Math.round((S.end - S.start)/1000) + S.penalty, m = $("#rank-msg");
+    $("#retry-save").hidden = true;
+    if (S.savedId){ showRank(); return; }
+    if (sec < 45){ m.textContent = "That was too fast to count."; return; }
+    m.textContent = "Saving your time…";
+    api("scores?select=id", {method:"POST", prefer:"return=representation",
+      body:{game: GAME_ID, team: (S.team || "Team").slice(0,24), seconds: sec, hints: Object.keys(S.hints).length}})
+      .then(function(rows){ S.savedId = rows && rows[0] && rows[0].id; S.savedSec = sec; save(); showRank(); })
+      .catch(function(){ m.textContent = "Your time was not saved. Check the internet and try again."; $("#retry-save").hidden = false; });
+  }
+  function showRank(){
+    var m = $("#rank-msg");
+    var base = "scores?select=id&game=eq." + GAME_ID + "&seconds=lt." + S.savedSec + "&limit=1000";
+    Promise.all([api(base), api(base + "&created_at=gte." + encodeURIComponent(todayISO()))])
+      .then(function(r){
+        m.textContent = "Saved! You are #" + (r[1].length + 1) + " today and #" + (r[0].length + 1) + " of all time.";
+        boardRange = "today"; refreshBoards();
+      })
+      .catch(function(){ m.textContent = "Saved!"; refreshBoards(); });
+  }
+  $("#retry-save").addEventListener("click", saveScore);
+
+  /* ---------- finish ---------- */
+  function finish(){
+    if (!S.end) S.end = Date.now();
+    var raw = S.end - S.start, total = raw + S.penalty*1000;
+    $("#win-team").textContent = S.team || "Your team";
+    $("#win-time").textContent = fmt(total);
+    $("#win-detail").textContent = S.penalty ? "Time " + fmt(raw) + " + hints " + fmt(S.penalty*1000) : "No hints used. Impressive!";
+    var wt = $("#win-tree");
+    wt.innerHTML = $("#tree").outerHTML.replace('id="tree"', 'id="tree-win"') + '<p class="tree-caption">Francesco\'s tree is full of lemons again.</p>';
+    healTree(wt.querySelector("svg"), LOCKS);
+    wt.classList.remove("won");
+    show("win");
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ wt.classList.add("won"); }); });
+    saveScore();
+  }
+
+  /* ---------- start / teacher ---------- */
+  $("#go").addEventListener("click", function(){
+    var name = $("#team").value.trim();
+    if (!name){ $("#team-msg").textContent = "Write a team name first."; shake($("#team")); $("#team").focus(); return; }
+    $("#team-msg").textContent = "";
+    S = fresh(); S.team = name; S.start = Date.now();
+    drawTree($("#tree")); show("game"); renderGame(); tick();
+    $("#w1").focus({preventScroll:true});
+  });
+  $("#again").addEventListener("click", function(){ S = fresh(); save(); $("#team").value = ""; show("start"); });
+
+  function gameUrl(){
+    var here = location.href.split("#")[0];
+    return /^https?:/.test(here) && here.indexOf("claude") < 0 ? here : (GAME_URL || here);
+  }
+  $("#open-teacher").addEventListener("click", function(){
+    var url = gameUrl(), box = $("#qr");
+    $("#qr-url").textContent = url.replace(/^https:\/\//, "");
+    if (typeof qrcode !== "function"){ box.textContent = "The QR code could not load. Type the address below instead."; }
+    else { try{ var q = qrcode(0,"M"); q.addData(url); q.make(); box.innerHTML = q.createSvgTag({cellSize:8, margin:2, scalable:true}); }catch(e){ box.textContent = "Type the address below instead."; } }
+    show("teacher");
+  });
+  $("#open-results").addEventListener("click", function(){ boardRange = "today"; show("results"); refreshBoards(); });
+  $("#close-results").addEventListener("click", function(){ show("teacher"); });
+  $("#close-teacher").addEventListener("click", function(){ show(S.screen === "game" ? "game" : S.screen === "win" ? "win" : "start"); });
+
+  /* ---------- boot ---------- */
+  function start(data){
+    S = (data && data.screen) ? data : (load() || fresh());
+    drawTree($("#tree"));
+    $("#team").value = S.team || "";
+    if (S.screen === "game" && S.start){ show("game"); renderGame(); tick(); }
+    else if (S.screen === "win" && S.end){ finish(); }
+    else { show("start"); }
+  }
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(function(){ return S; });
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
